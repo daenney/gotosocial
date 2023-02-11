@@ -154,6 +154,7 @@ var Start action.GTSAction = func(ctx context.Context) error {
 
 	// attach global middlewares which are used for every request
 	router.AttachGlobalMiddleware(
+		middleware.RequestID("X-Request-Id"),
 		middleware.Logger(),
 		middleware.UserAgent(),
 		middleware.CORS(),
