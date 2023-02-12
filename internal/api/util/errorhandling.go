@@ -27,7 +27,6 @@ import (
 	apimodel "github.com/superseriousbusiness/gotosocial/internal/api/model"
 	"github.com/superseriousbusiness/gotosocial/internal/gtserror"
 	"github.com/superseriousbusiness/gotosocial/internal/log"
-	"github.com/superseriousbusiness/gotosocial/internal/middleware"
 )
 
 // TODO: add more templated html pages here for different error types
@@ -50,11 +49,12 @@ func NotFoundHandler(c *gin.Context, instanceGet func(ctx context.Context) (*api
 		}
 
 		c.HTML(http.StatusNotFound, "404.tmpl", gin.H{
-			"instance":              instance,
-			middleware.RequestIDKey: middleware.RequestIDFromCtx(c.Request.Context()),
+			"instance": instance,
 		})
 	default:
-		c.JSON(http.StatusNotFound, gin.H{"error": http.StatusText(http.StatusNotFound)})
+		c.JSON(http.StatusNotFound, gin.H{
+			"error": http.StatusText(http.StatusNotFound),
+		})
 	}
 }
 
@@ -70,10 +70,9 @@ func genericErrorHandler(c *gin.Context, instanceGet func(ctx context.Context) (
 		}
 
 		c.HTML(errWithCode.Code(), "error.tmpl", gin.H{
-			"instance":              instance,
-			"code":                  errWithCode.Code(),
-			"error":                 errWithCode.Safe(),
-			middleware.RequestIDKey: middleware.RequestIDFromCtx(c.Request.Context()),
+			"instance": instance,
+			"code":     errWithCode.Code(),
+			"error":    errWithCode.Safe(),
 		})
 	default:
 		c.JSON(errWithCode.Code(), gin.H{"error": errWithCode.Safe()})
@@ -111,12 +110,12 @@ func ErrorHandler(c *gin.Context, errWithCode gtserror.WithCode, instanceGet fun
 // to pass any detailed errors (that might contain sensitive information) into the
 // errWithCode.Error() field, since the client will see this. Use your noggin!
 func OAuthErrorHandler(c *gin.Context, errWithCode gtserror.WithCode) {
-	l := log.WithFields(kv.Fields{
-		{"path", c.Request.URL.Path},
-		{"error", errWithCode.Error()},
-		{"help", errWithCode.Safe()},
-		{middleware.RequestIDKey, middleware.RequestIDFromCtx(c.Request.Context())},
-	}...)
+	l := log.WithContext(c.Request.Context()).
+		WithFields(kv.Fields{
+			{"path", c.Request.URL.Path},
+			{"error", errWithCode.Error()},
+			{"help", errWithCode.Safe()},
+		}...)
 
 	statusCode := errWithCode.Code()
 

@@ -35,7 +35,7 @@ import (
 func Logger() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Initialize the logging fields
-		fields := make(kv.Fields, 7, 8)
+		fields := make(kv.Fields, 6, 7)
 
 		// Determine pre-handler time
 		before := time.Now()
@@ -73,7 +73,6 @@ func Logger() gin.HandlerFunc {
 			fields[3] = kv.Field{"method", c.Request.Method}
 			fields[4] = kv.Field{"statusCode", code}
 			fields[5] = kv.Field{"path", path}
-			fields[6] = kv.Field{RequestIDKey, RequestIDFromCtx(c.Request.Context())}
 
 			// Create log entry with fields
 			l := log.WithFields(fields...)

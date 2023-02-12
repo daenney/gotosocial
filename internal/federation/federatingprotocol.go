@@ -232,7 +232,7 @@ func (f *federator) AuthenticatePostInbox(ctx context.Context, w http.ResponseWr
 // blocked must be false and error nil. The request will continue
 // to be processed.
 func (f *federator) Blocked(ctx context.Context, actorIRIs []*url.URL) (bool, error) {
-	log.Debugf("entering BLOCKED function with IRI list: %+v", actorIRIs)
+	log.Debugf(ctx, "entering BLOCKED function with IRI list: %+v", actorIRIs)
 
 	// check domain blocks first for the given actor IRIs
 	blocked, err := f.db.AreURIsBlocked(ctx, actorIRIs)
@@ -247,7 +247,7 @@ func (f *federator) Blocked(ctx context.Context, actorIRIs []*url.URL) (bool, er
 	otherInvolvedIRIsI := ctx.Value(ap.ContextOtherInvolvedIRIs)
 	otherInvolvedIRIs, ok := otherInvolvedIRIsI.([]*url.URL)
 	if !ok {
-		log.Error("other involved IRIs not set on request context")
+		log.Error(ctx, "other involved IRIs not set on request context")
 		return false, errors.New("other involved IRIs not set on request context, so couldn't determine blocks")
 	}
 	blocked, err = f.db.AreURIsBlocked(ctx, otherInvolvedIRIs)
@@ -262,13 +262,13 @@ func (f *federator) Blocked(ctx context.Context, actorIRIs []*url.URL) (bool, er
 	receivingAccountI := ctx.Value(ap.ContextReceivingAccount)
 	receivingAccount, ok := receivingAccountI.(*gtsmodel.Account)
 	if !ok {
-		log.Error("receiving account not set on request context")
+		log.Error(ctx, "receiving account not set on request context")
 		return false, errors.New("receiving account not set on request context, so couldn't determine blocks")
 	}
 	requestingAccountI := ctx.Value(ap.ContextRequestingAccount)
 	requestingAccount, ok := requestingAccountI.(*gtsmodel.Account)
 	if !ok {
-		log.Error("requesting account not set on request context")
+		log.Error(ctx, "requesting account not set on request context")
 		return false, errors.New("requesting account not set on request context, so couldn't determine blocks")
 	}
 	// the receiver shouldn't block the sender

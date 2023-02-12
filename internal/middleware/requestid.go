@@ -19,77 +19,95 @@
 package middleware
 
 import (
+	"bufio"
 	"context"
-	crand "crypto/rand"
-	"encoding/base64"
+	"crypto/rand"
+	"encoding/base32"
 	"encoding/binary"
-	"math/rand"
+	"io"
 	"sync"
+	"time"
 
+	"codeberg.org/gruf/go-byteutil"
+	"codeberg.org/gruf/go-pctx"
 	"github.com/gin-gonic/gin"
+	"github.com/superseriousbusiness/gotosocial/internal/log"
 )
 
-type ridCtxType string
-
-const (
-	// RequestIDKey is a string to use as a map key, for example a logger field
-	RequestIDKey            = "requestID"
-	ridCtxKey    ridCtxType = RequestIDKey
-)
+type ctxType string
 
 var (
-	ridLock sync.Mutex
-	ridInit sync.Once
-	ridSrc  *rand.Rand
+	// ridCtxKey is the key underwhich we store request IDs in a context.
+	ridCtxKey ctxType = "id"
+
+	// crand provides buffered reads of random input.
+	crand = bufio.NewReader(rand.Reader)
+	mrand sync.Mutex
+
+	// base32enc is a base 32 encoding based on a human-readable character set (no padding).
+	base32enc = base32.NewEncoding("0123456789abcdefghjkmnpqrstvwxyz").WithPadding(-1)
 )
 
-func ridInitRandom() {
-	ridInit.Do(func() {
-		var rngSeed int64
-		binary.Read(crand.Reader, binary.LittleEndian, &rngSeed)
-		ridSrc = rand.New(rand.NewSource(rngSeed)) // nolint:gosec
+// generateID generates a new ID string.
+func generateID() string {
+	// 0:8  = timestamp
+	// 8:12 = entropy
+	//
+	// inspired by ULID.
+	b := make([]byte, 12)
+
+	// Get current time in milliseconds.
+	ms := uint64(time.Now().UnixMilli())
+
+	// Store binary time data in byte buffer.
+	binary.LittleEndian.PutUint64(b[0:8], ms)
+
+	mrand.Lock()
+	// Read random bits into buffer end.
+	_, _ = io.ReadFull(crand, b[8:12])
+	mrand.Unlock()
+
+	// Encode the binary time+entropy ID.
+	return base32enc.EncodeToString(b)
+}
+
+// RequestID fetches the stored request ID from context.
+func RequestID(ctx context.Context) string {
+	id, _ := ctx.Value(ridCtxKey).(string)
+	return id
+}
+
+// AddRequestID returns a gin middleware which adds a unique ID to each request (both response header and context).
+func AddRequestID(header string) gin.HandlerFunc {
+	log.Hook(func(ctx context.Context, buf *byteutil.Buffer) {
+		if id, _ := ctx.Value(ridCtxKey).(string); id != "" {
+			// Add stored request ID to log entry.
+			buf.B = append(buf.B, `requestID`...)
+			buf.B = append(buf.B, id...)
+			buf.B = append(buf.B, ' ')
+		}
 	})
-}
 
-func ridGen() string {
-	ridInitRandom()
-	var id [16]byte
-
-	ridLock.Lock()
-	ridSrc.Read(id[:])
-	ridLock.Unlock()
-
-	// Use RawURLEncoding because we don't need the padding, but it's
-	// possible the rid may be used in a URL at some point in other
-	// systems
-	return base64.RawURLEncoding.EncodeToString(id[:])
-}
-
-// RequestID returns a gin middleware which adds a unique ID for each request
-// to the context. It currently directly wraps the upstream library but this
-// makes it easier to set any custom options later on.
-func RequestID(header string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Get id from request
-		rid := c.GetHeader(header)
-		if rid == "" {
-			rid = ridGen()
-			c.Request.Header.Set(header, rid)
+		// Look for existing ID.
+		id := c.GetHeader(header)
+
+		if id == "" {
+			// Generate new ID.
+			//
+			// 0:8  = timestamp
+			// 8:12 = entropy
+			id = generateID()
 		}
 
-		ctx := context.WithValue(c.Request.Context(), ridCtxKey, rid)
+		// Store request ID in persistent request context.
+		ctx := pctx.Persist(c.Request.Context(), ridCtxKey, id)
 		c.Request = c.Request.WithContext(ctx)
 
-		// Set the id to ensure that the requestid is in the response
-		c.Header(header, rid)
+		// Set the request ID in the rsp header.
+		c.Writer.Header().Set(header, id)
+
+		// Next handler.
 		c.Next()
 	}
-}
-
-func RequestIDFromCtx(c context.Context) string {
-	v, ok := c.Value(ridCtxKey).(string)
-	if !ok {
-		return ""
-	}
-	return v
 }

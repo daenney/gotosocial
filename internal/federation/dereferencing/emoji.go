@@ -111,7 +111,7 @@ func (d *deref) populateEmojis(ctx context.Context, rawEmojis []*gtsmodel.Emoji,
 			// have to get it from the database again
 			gotEmoji = e
 		} else if gotEmoji, err = d.db.GetEmojiByShortcodeDomain(ctx, e.Shortcode, e.Domain); err != nil && err != db.ErrNoEntries {
-			log.Errorf("populateEmojis: error checking database for emoji %s: %s", shortcodeDomain, err)
+			log.Errorf(ctx, "populateEmojis: error checking database for emoji %s: %s", shortcodeDomain, err)
 			continue
 		}
 
@@ -120,24 +120,24 @@ func (d *deref) populateEmojis(ctx context.Context, rawEmojis []*gtsmodel.Emoji,
 		if gotEmoji != nil {
 			// we had the emoji already, but refresh it if necessary
 			if e.UpdatedAt.Unix() > gotEmoji.ImageUpdatedAt.Unix() {
-				log.Tracef("populateEmojis: emoji %s was updated since we last saw it, will refresh", shortcodeDomain)
+				log.Tracef(ctx, "populateEmojis: emoji %s was updated since we last saw it, will refresh", shortcodeDomain)
 				refresh = true
 			}
 
 			if !refresh && (e.URI != gotEmoji.URI) {
-				log.Tracef("populateEmojis: emoji %s changed URI since we last saw it, will refresh", shortcodeDomain)
+				log.Tracef(ctx, "populateEmojis: emoji %s changed URI since we last saw it, will refresh", shortcodeDomain)
 				refresh = true
 			}
 
 			if !refresh && (e.ImageRemoteURL != gotEmoji.ImageRemoteURL) {
-				log.Tracef("populateEmojis: emoji %s changed image URL since we last saw it, will refresh", shortcodeDomain)
+				log.Tracef(ctx, "populateEmojis: emoji %s changed image URL since we last saw it, will refresh", shortcodeDomain)
 				refresh = true
 			}
 
 			if !refresh {
-				log.Tracef("populateEmojis: emoji %s is up to date, will not refresh", shortcodeDomain)
+				log.Tracef(ctx, "populateEmojis: emoji %s is up to date, will not refresh", shortcodeDomain)
 			} else {
-				log.Tracef("populateEmojis: refreshing emoji %s", shortcodeDomain)
+				log.Tracef(ctx, "populateEmojis: refreshing emoji %s", shortcodeDomain)
 				emojiID := gotEmoji.ID // use existing ID
 				processingEmoji, err := d.GetRemoteEmoji(ctx, requestingUsername, e.ImageRemoteURL, e.Shortcode, e.Domain, emojiID, e.URI, &media.AdditionalEmojiInfo{
 					Domain:               &e.Domain,
@@ -146,14 +146,13 @@ func (d *deref) populateEmojis(ctx context.Context, rawEmojis []*gtsmodel.Emoji,
 					Disabled:             gotEmoji.Disabled,
 					VisibleInPicker:      gotEmoji.VisibleInPicker,
 				}, refresh)
-
 				if err != nil {
-					log.Errorf("populateEmojis: couldn't refresh remote emoji %s: %s", shortcodeDomain, err)
+					log.Errorf(ctx, "populateEmojis: couldn't refresh remote emoji %s: %s", shortcodeDomain, err)
 					continue
 				}
 
 				if gotEmoji, err = processingEmoji.LoadEmoji(ctx); err != nil {
-					log.Errorf("populateEmojis: couldn't load refreshed remote emoji %s: %s", shortcodeDomain, err)
+					log.Errorf(ctx, "populateEmojis: couldn't load refreshed remote emoji %s: %s", shortcodeDomain, err)
 					continue
 				}
 			}
@@ -161,7 +160,7 @@ func (d *deref) populateEmojis(ctx context.Context, rawEmojis []*gtsmodel.Emoji,
 			// it's new! go get it!
 			newEmojiID, err := id.NewRandomULID()
 			if err != nil {
-				log.Errorf("populateEmojis: error generating id for remote emoji %s: %s", shortcodeDomain, err)
+				log.Errorf(ctx, "populateEmojis: error generating id for remote emoji %s: %s", shortcodeDomain, err)
 				continue
 			}
 
@@ -172,14 +171,13 @@ func (d *deref) populateEmojis(ctx context.Context, rawEmojis []*gtsmodel.Emoji,
 				Disabled:             e.Disabled,
 				VisibleInPicker:      e.VisibleInPicker,
 			}, refresh)
-
 			if err != nil {
-				log.Errorf("populateEmojis: couldn't get remote emoji %s: %s", shortcodeDomain, err)
+				log.Errorf(ctx, "populateEmojis: couldn't get remote emoji %s: %s", shortcodeDomain, err)
 				continue
 			}
 
 			if gotEmoji, err = processingEmoji.LoadEmoji(ctx); err != nil {
-				log.Errorf("populateEmojis: couldn't load remote emoji %s: %s", shortcodeDomain, err)
+				log.Errorf(ctx, "populateEmojis: couldn't load remote emoji %s: %s", shortcodeDomain, err)
 				continue
 			}
 		}

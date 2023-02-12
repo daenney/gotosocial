@@ -31,11 +31,11 @@ import (
 type cronLogger struct{}
 
 func (l *cronLogger) Info(msg string, keysAndValues ...interface{}) {
-	log.Info("media manager cron logger: ", msg, keysAndValues)
+	log.Info(nil, "media manager cron logger: ", msg, keysAndValues)
 }
 
 func (l *cronLogger) Error(err error, msg string, keysAndValues ...interface{}) {
-	log.Error("media manager cron logger: ", err, msg, keysAndValues)
+	log.Error(nil, "media manager cron logger: ", err, msg, keysAndValues)
 }
 
 func scheduleCleanup(m *manager) error {
@@ -46,7 +46,7 @@ func scheduleCleanup(m *manager) error {
 
 	if _, err := c.AddFunc("@midnight", func() {
 		if err := m.PruneAll(pruneCtx, config.GetMediaRemoteCacheDays(), true); err != nil {
-			log.Error(err)
+			log.Error(nil, err)
 			return
 		}
 	}); err != nil {
@@ -60,9 +60,9 @@ func scheduleCleanup(m *manager) error {
 
 		select {
 		case <-stopCtx.Done():
-			log.Infof("media manager: cron finished jobs and stopped gracefully")
+			log.Infof(nil, "media manager: cron finished jobs and stopped gracefully")
 		case <-time.After(1 * time.Minute):
-			log.Warnf("media manager: cron didn't stop after 60 seconds, force closing jobs")
+			log.Warnf(nil, "media manager: cron didn't stop after 60 seconds, force closing jobs")
 			pruneCancel()
 		}
 
