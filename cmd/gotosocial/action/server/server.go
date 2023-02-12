@@ -154,7 +154,7 @@ var Start action.GTSAction = func(ctx context.Context) error {
 
 	// attach global middlewares which are used for every request
 	router.AttachGlobalMiddleware(
-		middleware.AddRequestID("X-Request-Id"),
+		middleware.AddRequestID("X-Request-ID"),
 		// note: hooks adding ctx fields must be ABOVE
 		// the logger, otherwise won't be accessible.
 		middleware.Logger(),
