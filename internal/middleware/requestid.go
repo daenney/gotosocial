@@ -28,8 +28,7 @@ import (
 	"sync"
 	"time"
 
-	"codeberg.org/gruf/go-byteutil"
-	"codeberg.org/gruf/go-pctx"
+	"codeberg.org/gruf/go-kv"
 	"github.com/gin-gonic/gin"
 	"github.com/superseriousbusiness/gotosocial/internal/log"
 )
@@ -79,13 +78,12 @@ func RequestID(ctx context.Context) string {
 
 // AddRequestID returns a gin middleware which adds a unique ID to each request (both response header and context).
 func AddRequestID(header string) gin.HandlerFunc {
-	log.Hook(func(ctx context.Context, buf *byteutil.Buffer) {
+	log.Hook(func(ctx context.Context, kvs []kv.Field) []kv.Field {
 		if id, _ := ctx.Value(ridCtxKey).(string); id != "" {
-			// Add stored request ID to log entry.
-			buf.B = append(buf.B, `requestID`...)
-			buf.B = append(buf.B, id...)
-			buf.B = append(buf.B, ' ')
+			// Add stored request ID to log entry fields.
+			return append(kvs, kv.Field{K: "requestID", V: id})
 		}
+		return kvs
 	})
 
 	return func(c *gin.Context) {
@@ -100,8 +98,8 @@ func AddRequestID(header string) gin.HandlerFunc {
 			id = generateID()
 		}
 
-		// Store request ID in persistent request context.
-		ctx := pctx.Persist(c.Request.Context(), ridCtxKey, id)
+		// Store request ID in new request ctx and set new gin request obj.
+		ctx := context.WithValue(c.Request.Context(), ridCtxKey, id)
 		c.Request = c.Request.WithContext(ctx)
 
 		// Set the request ID in the rsp header.

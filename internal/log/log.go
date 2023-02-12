@@ -28,7 +28,6 @@ import (
 	"syscall"
 	"time"
 
-	"codeberg.org/gruf/go-byteutil"
 	"codeberg.org/gruf/go-kv"
 	"codeberg.org/gruf/go-logger/v2/level"
 )
@@ -47,11 +46,11 @@ var (
 	timefmt = "02/01/2006 15:04:05.000"
 
 	// ctxhooks allows modifying log content based on context.
-	ctxhooks []func(context.Context, *byteutil.Buffer)
+	ctxhooks []func(context.Context, []kv.Field) []kv.Field
 )
 
 // Hook adds the given hook to the global logger context hooks stack.
-func Hook(hook func(ctx context.Context, buf *byteutil.Buffer)) {
+func Hook(hook func(ctx context.Context, kvs []kv.Field) []kv.Field) {
 	ctxhooks = append(ctxhooks, hook)
 }
 
@@ -237,7 +236,7 @@ func logf(ctx context.Context, depth int, lvl level.LEVEL, fields []kv.Field, s 
 	if ctx != nil {
 		// Pass context through hooks.
 		for _, hook := range ctxhooks {
-			hook(ctx, buf)
+			fields = hook(ctx, fields)
 		}
 	}
 
